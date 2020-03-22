@@ -1,6 +1,7 @@
 ---
 title: "Reproducible Research: Peer Assessment 1"
-output: 
+author: "Ruizhe Lu"
+output:
   html_document:
     keep_md: true
 ---
@@ -8,18 +9,102 @@ output:
 
 ## Loading and preprocessing the data
 
-
+```{r}
+if(!file.exists("activity.csv")){
+        url <- 'http://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip'
+        download.file(url,destfile='repdatadataFactivity.zip')
+        unzip('repdatadataFactivity.zip')}
+data <- read.csv("activity.csv")
+# to check whether if the data are completely loaded with 17568 observations
+# and get an idea of preprocessing
+str(data)
+```
 
 ## What is mean total number of steps taken per day?
 
-
+```{r}
+stepsperday <- aggregate(steps ~ date, data, sum)
+hist(stepsperday$steps, col = "dodgerblue", xlab = "Number of Steps taken", main = "Total number of Steps taken each Day")
+mean(stepsperday$steps)
+median(stepsperday$steps)
+```
 
 ## What is the average daily activity pattern?
-
-
+```{r}
+library("ggplot2")
+stepsperinterval <- aggregate(steps ~ interval, data ,mean)
+ggplot(stepsperinterval, aes(interval,steps))+
+        geom_line(col = "dodgerblue") +
+        xlab("5-Mintue Intervals") +
+        ylab("Number of Steps taken") +
+        ggtitle("Average Number of Steps taken daily by Interval") +
+        theme_bw()
+stepsperinterval[grepl(max(stepsperinterval$steps),stepsperinterval$steps),1]
+```
 
 ## Imputing missing values
 
+```{r}
+sum(!complete.cases(data))
+```
 
+## A Hint: in this case you cannot fill NAs by mean steps of date.
+## Since there are some days contain only NAs, eg.2012-10-01
+
+```{r}
+filldata <- aggregate(steps ~ interval, data, mean) 
+for(i in 1:nrow(data)){
+        fillrow <- data[i,]
+        if(is.na(fillrow$steps)){
+                fillset <- subset(filldata, filldata$interval == fillrow$interval)
+                fillrow$steps <- fillset$steps
+        }
+        data[i,1] <- fillrow$steps
+}
+newdata <- data
+#check if there is still NAs
+sum(!complete.cases(newdata))
+sumbyday <- aggregate(steps ~ date, newdata, sum)
+par(mfrow=c(1,2),mar=c(4,4,2,1))
+hist(stepsperday$steps, col = "dodgerblue", xlab = "Number of Steps taken", main = "Old Histogram",ylim = c(0,35))
+hist(sumbyday$steps, col = "dodgerblue", xlab = "Number of Steps taken", main = "New Histogram")
+mean(sumbyday$steps)
+median(sumbyday$steps)
+```
+
+## Recall that the mean and median without inputing NAs are:
+
+```{r}
+mean(stepsperday$steps)
+median(stepsperday$steps)
+```
+
+## It is clear from both the histograms and values that the median has INCREASED without NAs!
+
+## The variation is obvious in the frequency of steps between 10000 and 15000, INCREASED too!
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+```{r}
+newdata[,"day"] <- NA
+weekday <- c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday")
+for (i in 1:nrow(newdata)){
+        row <- newdata[i,]
+        if(weekdays(as.Date(row$date)) %in% weekday){
+                newdata[i,]$day <- "weekday"
+        }
+        else{
+                newdata[i,]$day <- "weekend"
+        }
+} 
+newaverage <- aggregate(steps ~ interval + day, newdata, mean)
+ggplot(newaverage, aes(interval, steps)) + 
+        facet_grid(rows = vars(day))+
+        geom_line(col = "dodgerblue") +
+        xlab("5-Mintue Intervals") +
+        ylab("Number of Steps taken") +
+        ggtitle("Average Number of Steps taken daily by Interval") +
+        theme_bw()
+```
+        
+
